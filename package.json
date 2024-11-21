@@ -1,7 +1,8 @@
 {
   "dependencies": {
     "@inlang/paraglide-sveltekit": "^0.11.1",
-    "@tailwindcss/typography": "^0.5.15"
+    "@tailwindcss/typography": "^0.5.15",
+    "valibot": "1.0.0-beta.7"
   },
   "devDependencies": {
     "@sveltejs/adapter-auto": "^3.0.0",
