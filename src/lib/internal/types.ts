@@ -335,6 +335,8 @@ export const validateQuiz = (quiz: Quiz): boolean => {
   }
 };
 
+type ResponseValue = string | number | boolean | Date | (string | number | boolean | Date)[] | null;
+
 export const createResponse = <T extends Question>(
   question: T,
   value: QuestionValue<T>,
@@ -342,7 +344,7 @@ export const createResponse = <T extends Question>(
   validationErrors: string[] = []
 ): QuestionResponse => ({
   questionId: question.id,
-  value: value as any, // Type assertion needed due to QuestionValue complexity
+  value: value as ResponseValue,
   timestamp: new Date(),
   isValid,
   validationErrors,
@@ -356,7 +358,7 @@ export const evaluateTransition = (
     const response = responses[condition.questionId];
     if (!response) return false;
 
-    const compareValues = (a: any, b: any): boolean => {
+    const compareValues = (a: ResponseValue, b: ResponseValue): boolean => {
       if (a instanceof Date && b instanceof Date) {
         return a.getTime() === b.getTime();
       }
