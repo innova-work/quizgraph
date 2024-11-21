@@ -1,5 +1,9 @@
 import * as v from 'valibot';
 
+// ==================
+// Enums
+// ==================
+
 export enum QuestionTypeEnum {
   Text = 'text',
   Number = 'number',
@@ -13,8 +17,29 @@ export enum QuestionTypeEnum {
   Signature = 'signature',
 }
 
-// Basic types for question components
-export const QuestionTypeEnumSchema = v.enum(QuestionTypeEnum, "Invalid question type");
+export enum ConditionOperatorEnum {
+  EQUALS = 'equals',
+  NOT_EQUALS = 'notEquals',
+  CONTAINS = 'contains',
+  NOT_CONTAINS = 'notContains',
+  GREATER_THAN = 'greaterThan',
+  LESS_THAN = 'lessThan',
+  BETWEEN = 'between',
+  MATCHES = 'matches',
+}
+
+export enum CombinationTypeEnum {
+  AND = 'AND',
+  OR = 'OR',
+}
+
+// ==================
+// Basic Schemas
+// ==================
+
+export const QuestionTypeEnumSchema = v.enum(QuestionTypeEnum);
+export const ConditionOperatorEnumSchema = v.enum(ConditionOperatorEnum);
+export const CombinationTypeEnumSchema = v.enum(CombinationTypeEnum);
 
 // Options for select/multiSelect/checkboxGroup questions
 export const OptionSchema = v.object({
@@ -25,12 +50,15 @@ export const OptionSchema = v.object({
 
 export type Option = v.InferInput<typeof OptionSchema>;
 
-// Type-specific validation rules
+// ==================
+// Validation Schemas
+// ==================
+
 export const TextValidationSchema = v.object({
   minLength: v.optional(v.number()),
   maxLength: v.optional(v.number()),
-  pattern: v.optional(v.string()), // regex pattern
-  patternError: v.optional(v.string()), // custom error message for pattern
+  pattern: v.optional(v.string()),
+  patternError: v.optional(v.string()),
 });
 
 export const NumberValidationSchema = v.object({
@@ -62,7 +90,7 @@ export const CheckboxGroupValidationSchema = v.object({
 });
 
 export const RatingValidationSchema = v.object({
-  min: v.optional(v.number()),
+  min: v.optional(v.number(), 1),
   max: v.optional(v.number(), 5),
 });
 
@@ -72,7 +100,10 @@ export const SignatureValidationSchema = v.object({
   required: v.optional(v.boolean()),
 });
 
-// Base question fields that are common to all question types
+// ==================
+// Question Schemas
+// ==================
+
 const baseQuestionFields = {
   id: v.string(),
   label: v.string(),
@@ -80,7 +111,6 @@ const baseQuestionFields = {
   required: v.optional(v.boolean(), false),
 } as const;
 
-// Question schema with type-specific validation
 export const QuestionSchema = v.union([
   // Text question
   v.object({
@@ -170,120 +200,26 @@ export const QuestionSchema = v.union([
 
 export type Question = v.InferInput<typeof QuestionSchema>;
 
-export enum ConditionOperatorEnum {
-  EQUALS = 'equals',
-  NOT_EQUALS = 'notEquals',
-  CONTAINS = 'contains',
-  NOT_CONTAINS = 'notContains',
-  GREATER_THAN = 'greaterThan',
-  LESS_THAN = 'lessThan',
-  BETWEEN = 'between',
-  MATCHES = 'matches',
-}
+// ==================
+// Response Types
+// ==================
 
-// Condition operator for transitions
-export const ConditionOperatorEnumSchema = v.enum(ConditionOperatorEnum, "Not a valid operation");
-
-export type ConditionOperator = v.InferInput<typeof ConditionOperatorEnumSchema>;
-
-// Condition schema
-export const ConditionSchema = v.object({
+export const QuestionResponseSchema = v.object({
   questionId: v.string(),
-  operator: ConditionOperatorEnumSchema,
   value: v.union([
     v.string(),
     v.number(),
     v.boolean(),
-    v.array(v.union([v.string(), v.number(), v.boolean()])),
+    v.date(),
+    v.array(v.union([v.string(), v.number(), v.boolean(), v.date()])),
+    v.null()
   ]),
-  additionalValue: v.optional(v.union([v.string(), v.number()])),
+  timestamp: v.date(),
+  isValid: v.boolean(),
+  validationErrors: v.optional(v.array(v.string())),
 });
 
-export enum CombinationTypeEnum {
-  AND = 'AND',
-  OR = 'OR',
-}
-
-// Transition schema - defines where to go next based on conditions
-export const TransitionSchema = v.object({
-  conditions: v.array(ConditionSchema),
-  nextNodeId: v.string(),
-  combinationType: v.optional(v.enum(CombinationTypeEnum), CombinationTypeEnum.AND),
-});
-
-export type Transition = v.InferInput<typeof TransitionSchema>;
-
-// Node schema
-export const NodeSchema = v.object({
-  id: v.string(),
-  title: v.string(),
-  description: v.optional(v.string()),
-  questions: v.array(QuestionSchema),
-  transitions: v.array(TransitionSchema),
-  isStart: v.optional(v.boolean()),
-  isEnd: v.optional(v.boolean()),
-  metadata: v.optional(v.record(v.string(), v.unknown())),
-});
-
-export type Node = v.InferInput<typeof NodeSchema>;
-
-// Quiz schema
-export const QuizSchema = v.object({
-  id: v.string(),
-  title: v.string(),
-  description: v.optional(v.string()),
-  version: v.string(),
-  nodes: v.array(NodeSchema),
-  settings: v.optional(v.object({
-    allowBackTracking: v.optional(v.boolean()),
-    showProgressBar: v.optional(v.boolean()),
-    shuffleQuestions: v.optional(v.boolean()),
-    theme: v.optional(v.string()),
-    timeLimit: v.optional(v.number()),
-  })),
-  metadata: v.optional(v.record(v.string(), v.unknown())),
-});
-
-export type Quiz = v.InferInput<typeof QuizSchema>;
-
-// Get the value schema based on question type
-const getValueSchemaForQuestion = (question: Question) => {
-  switch (question.type) {
-    case 'text':
-      return v.string();
-    case 'number':
-      return v.number();
-    case 'select':
-      return v.string();
-    case 'multiSelect':
-      return v.array(v.string());
-    case 'checkbox':
-      return v.boolean();
-    case 'checkboxGroup':
-      return v.array(v.string());
-    case 'date':
-      return v.date();
-    case 'rating':
-      return v.number();
-    case 'file':
-      return question.multiple ? v.array(v.unknown()) : v.unknown();
-    case 'signature':
-      return v.string();
-    default:
-      throw new Error(`Unknown question type: ${question.type}`);
-  }
-};
-
-// Create a response schema for a specific question
-const createQuestionResponseSchema = (question: Question) => {
-  return v.object({
-    questionId: v.string(),
-    value: getValueSchemaForQuestion(question),
-    timestamp: v.date(),
-    isValid: v.boolean(),
-    validationErrors: v.optional(v.array(v.string())),
-  });
-};
+export type QuestionResponse = v.InferInput<typeof QuestionResponseSchema>;
 
 // Helper type to extract the value type from a question
 type QuestionValue<T extends Question> = T extends { type: 'text' }
@@ -308,47 +244,69 @@ type QuestionValue<T extends Question> = T extends { type: 'text' }
   ? string
   : never;
 
+// ==================
+// Transition & Node Types
+// ==================
 
-// Generic QuestionResponse schema
-// Generic Response type
-export type QuestionResponse<T extends Question> = {
-  questionId: string;
-  value: QuestionValue<T>;
-  timestamp: Date;
-  isValid: boolean;
-  validationErrors?: string[];
-};
+export const ConditionSchema = v.object({
+  questionId: v.string(),
+  operator: ConditionOperatorEnumSchema,
+  value: v.union([
+    v.string(),
+    v.number(),
+    v.boolean(),
+    v.date(),
+    v.array(v.union([v.string(), v.number(), v.boolean(), v.date()])),
+  ]),
+  additionalValue: v.optional(v.union([v.string(), v.number(), v.date()])),
+});
 
-// Type guards for question types
-const isTextQuestion = (question: Question): question is Extract<Question, { type: 'text' }> =>
-  question.type === 'text';
+export const TransitionSchema = v.object({
+  conditions: v.array(ConditionSchema),
+  nextNodeId: v.string(),
+  combinationType: v.optional(CombinationTypeEnumSchema, CombinationTypeEnum.AND),
+});
 
-const isNumberQuestion = (question: Question): question is Extract<Question, { type: 'number' }> =>
-  question.type === 'number';
+export type Transition = v.InferInput<typeof TransitionSchema>;
 
-const isSelectQuestion = (question: Question): question is Extract<Question, { type: 'select' }> =>
-  question.type === 'select';
+export const NodeSchema = v.object({
+  id: v.string(),
+  title: v.string(),
+  description: v.optional(v.string()),
+  questions: v.array(QuestionSchema),
+  transitions: v.array(TransitionSchema),
+  isStart: v.optional(v.boolean()),
+  isEnd: v.optional(v.boolean()),
+  metadata: v.optional(v.record(v.string(), v.unknown())),
+});
 
-const isMultiSelectQuestion = (question: Question): question is Extract<Question, { type: 'multiSelect' }> =>
-  question.type === 'multiSelect';
+export type Node = v.InferInput<typeof NodeSchema>;
 
-const isCheckboxQuestion = (question: Question): question is Extract<Question, { type: 'checkbox' }> =>
-  question.type === 'checkbox';
+// ==================
+// Quiz Schema
+// ==================
 
-const isCheckboxGroupQuestion = (question: Question): question is Extract<Question, { type: 'checkboxGroup' }> =>
-  question.type === 'checkboxGroup';
+export const QuizSchema = v.object({
+  id: v.string(),
+  title: v.string(),
+  description: v.optional(v.string()),
+  version: v.string(),
+  nodes: v.array(NodeSchema),
+  settings: v.optional(v.object({
+    allowBackTracking: v.optional(v.boolean()),
+    showProgressBar: v.optional(v.boolean()),
+    shuffleQuestions: v.optional(v.boolean()),
+    theme: v.optional(v.string()),
+    timeLimit: v.optional(v.number()),
+  })),
+  metadata: v.optional(v.record(v.string(), v.unknown())),
+});
 
-const isDateQuestion = (question: Question): question is Extract<Question, { type: 'date' }> =>
-  question.type === 'date';
+export type Quiz = v.InferInput<typeof QuizSchema>;
 
-const isRatingQuestion = (question: Question): question is Extract<Question, { type: 'rating' }> =>
-  question.type === 'rating';
-
-const isFileQuestion = (question: Question): question is Extract<Question, { type: 'file' }> =>
-  question.type === 'file';
-
-const isSignatureQuestion = (question: Question): question is Extract<Question, { type: 'signature' }> =>
-  question.type === 'signature';
+// ==================
+// Quiz State
+// ==================
 
 export const QuizStateSchema = v.object({
   quizId: v.string(),
@@ -363,7 +321,10 @@ export const QuizStateSchema = v.object({
 
 export type QuizState = v.InferInput<typeof QuizStateSchema>;
 
-// Helper function to validate a quiz structure
+// ==================
+// Helper Functions
+// ==================
+
 export const validateQuiz = (quiz: Quiz): boolean => {
   try {
     v.parse(QuizSchema, quiz);
@@ -374,36 +335,78 @@ export const validateQuiz = (quiz: Quiz): boolean => {
   }
 };
 
-// Updated evaluate transition to use type guards
+export const createResponse = <T extends Question>(
+  question: T,
+  value: QuestionValue<T>,
+  isValid: boolean = true,
+  validationErrors: string[] = []
+): QuestionResponse => ({
+  questionId: question.id,
+  value: value as any, // Type assertion needed due to QuestionValue complexity
+  timestamp: new Date(),
+  isValid,
+  validationErrors,
+});
+
 export const evaluateTransition = (
   transition: Transition,
-  responses: Record<string, QuestionResponse<Question>>
+  responses: Record<string, QuestionResponse>
 ): boolean => {
   const evaluateCondition = (condition: v.InferInput<typeof ConditionSchema>): boolean => {
     const response = responses[condition.questionId];
     if (!response) return false;
 
+    const compareValues = (a: any, b: any): boolean => {
+      if (a instanceof Date && b instanceof Date) {
+        return a.getTime() === b.getTime();
+      }
+      return a === b;
+    };
+
     switch (condition.operator) {
       case ConditionOperatorEnum.EQUALS:
-        return response.value === condition.value;
+        return compareValues(response.value, condition.value);
       case ConditionOperatorEnum.NOT_EQUALS:
-        return response.value !== condition.value;
+        return !compareValues(response.value, condition.value);
       case ConditionOperatorEnum.CONTAINS:
         return Array.isArray(response.value) &&
-          response.value.includes(condition.value);
+          response.value.some(v => compareValues(v, condition.value));
       case ConditionOperatorEnum.NOT_CONTAINS:
         return Array.isArray(response.value) &&
-          !response.value.includes(condition.value);
+          !response.value.some(v => compareValues(v, condition.value));
       case ConditionOperatorEnum.GREATER_THAN:
-        return typeof response.value === 'number' &&
-          response.value > (condition.value as number);
+        return (
+          response.value instanceof Date && condition.value instanceof Date
+            ? response.value > condition.value
+            : Number(response.value) > Number(condition.value)
+        );
       case ConditionOperatorEnum.LESS_THAN:
-        return typeof response.value === 'number' &&
-          response.value < (condition.value as number);
+        return (
+          response.value instanceof Date && condition.value instanceof Date
+            ? response.value < condition.value
+            : Number(response.value) < Number(condition.value)
+        );
       case ConditionOperatorEnum.BETWEEN:
-        return typeof response.value === 'number' &&
-          response.value > (condition.value as number) &&
-          response.value < (condition.additionalValue as number ?? Infinity);
+        if (
+          typeof condition.value === 'number' &&
+          typeof condition.additionalValue === 'number'
+        ) {
+          return (
+            Number(response.value) > condition.value &&
+            Number(response.value) < condition.additionalValue
+          );
+        }
+        if (
+          condition.value instanceof Date &&
+          condition.additionalValue instanceof Date
+        ) {
+          return (
+            response.value instanceof Date &&
+            response.value > condition.value &&
+            response.value < condition.additionalValue
+          );
+        }
+        return false;
       case ConditionOperatorEnum.MATCHES:
         return typeof response.value === 'string' &&
           new RegExp(condition.value as string).test(response.value);
@@ -416,17 +419,3 @@ export const evaluateTransition = (
     ? transition.conditions.some(evaluateCondition)
     : transition.conditions.every(evaluateCondition);
 };
-
-// Helper to create a type-safe response
-export const createResponse = <T extends Question>(
-  question: T,
-  value: QuestionValue<T>,
-  isValid: boolean = true,
-  validationErrors: string[] = []
-): QuestionResponse<T> => ({
-  questionId: question.id,
-  value,
-  timestamp: new Date(),
-  isValid,
-  validationErrors,
-});
